@@ -79,7 +79,7 @@ stages:
         path:
         - $(buildOutputDir)/Lithnet.ResourceManagement.McpServer.dll
         environment: 'dev'
-        azureSubscription: 'LithnetPAYGSubscription'
+        azureSubscription: 'ProductionServices'
         description: 'Lithnet MIM MCP Server'
 
     - task: DotNetCoreCLI@2
@@ -99,7 +99,7 @@ stages:
         - $(packDir)/*.nupkg
         - $(packDir)/*.snupkg
         environment: 'dev'
-        azureSubscription: 'LithnetPAYGSubscription'
+        azureSubscription: 'ProductionServices'
         description: 'Lithnet MIM MCP Server'
 
     - publish: $(packDir)
