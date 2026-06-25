@@ -26,6 +26,8 @@ variables:
     value: 'src/Lithnet.ResourceManagement.McpServer/Lithnet.ResourceManagement.McpServer.csproj'
   - name: testProjectPath
     value: 'tests/Lithnet.ResourceManagement.McpServer.Tests/Lithnet.ResourceManagement.McpServer.Tests.csproj'
+  - name: buildOutputDir
+    value: '$(Build.ArtifactStagingDirectory)/build'
   - name: packDir
     value: '$(Build.ArtifactStagingDirectory)/nuget'
   - name: nugetServiceConnection
@@ -63,7 +65,7 @@ stages:
       inputs:
         command: 'build'
         projects: '$(projectPath)'
-        arguments: '-c $(buildConfiguration) -p:Version=$(build.version) -p:GeneratePackageOnBuild=false --no-restore'
+        arguments: '-c $(buildConfiguration) -p:Version=$(build.version) -p:GeneratePackageOnBuild=false -o $(buildOutputDir) --no-restore'
 
     - task: DotNetCoreCLI@2
       displayName: Test
@@ -75,7 +77,7 @@ stages:
     - template: templates/codesign.yaml@release_tools
       parameters:
         path:
-        - $(Agent.BuildDirectory)/s/resourcemanagement-mcp/src/Lithnet.ResourceManagement.McpServer/bin/$(buildConfiguration)/net10.0/Lithnet.ResourceManagement.McpServer.dll
+        - $(buildOutputDir)/Lithnet.ResourceManagement.McpServer.dll
         environment: 'dev'
         azureSubscription: 'LithnetPAYGSubscription'
         description: 'Lithnet MIM MCP Server'
