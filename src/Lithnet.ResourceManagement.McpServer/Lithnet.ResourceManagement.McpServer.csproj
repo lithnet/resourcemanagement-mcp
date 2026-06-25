@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Lithnet.ResourceManagement.McpServer</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>mim-mcp</ToolCommandName>
+    <PackageId>Lithnet.ResourceManagement.McpServer</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Lithnet</Authors>
+    <Description>An MCP server for Microsoft Identity Manager (MIM). Exposes MIM Service operations as tools for AI agents via the Model Context Protocol.</Description>
+    <PackageProjectUrl>https://github.com/lithnet/resourcemanagement-mcp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/lithnet/resourcemanagement-mcp</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>mim;fim;identity;mcp;model-context-protocol</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Copyright>Copyright 2026 Lithnet Pty Ltd</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lithnet.ResourceManagement.McpServer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Lithnet.ResourceManagement.Client" Version="2.*" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.*" />
+    <PackageReference Include="ModelContextProtocol" Version="1.*" />
+  </ItemGroup>
+
+</Project>

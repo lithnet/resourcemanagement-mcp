@@ -1,0 +1,154 @@
+trigger:
+  branches:
+    include:
+    - master
+    - main
+
+resources:
+  repositories:
+  - repository: release_tools
+    type: git
+    name: release-tools/release-tools
+    ref: master
+
+variables:
+  - name: buildConfiguration
+    value: 'Release'
+  - name: build.version.major
+    value: 1
+  - name: build.version.minor
+    value: 0
+  - name: build.version.revision
+    value: $[counter(format('{0}.{1}', variables['build.version.major'], variables['build.version.minor']), 0)]
+  - name: build.version
+    value: $(build.version.major).$(build.version.minor).$(build.version.revision)
+  - name: projectPath
+    value: 'src/Lithnet.ResourceManagement.McpServer/Lithnet.ResourceManagement.McpServer.csproj'
+  - name: testProjectPath
+    value: 'tests/Lithnet.ResourceManagement.McpServer.Tests/Lithnet.ResourceManagement.McpServer.Tests.csproj'
+  - name: packDir
+    value: '$(Build.ArtifactStagingDirectory)/nuget'
+  - name: nugetServiceConnection
+    value: 'MimManagementAgentsNuget'
+
+stages:
+- stage: build
+  displayName: Build, Test and Pack
+  jobs:
+  - job: build
+    displayName: Build
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - checkout: self
+      path: s/resourcemanagement-mcp
+
+    - checkout: release_tools
+      path: release-tools
+
+    - task: UseDotNet@2
+      displayName: Install .NET 10 SDK
+      inputs:
+        packageType: 'sdk'
+        version: '10.x'
+
+    - task: DotNetCoreCLI@2
+      displayName: Restore
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: Build
+      inputs:
+        command: 'build'
+        projects: '$(projectPath)'
+        arguments: '-c $(buildConfiguration) -p:Version=$(build.version) -p:GeneratePackageOnBuild=false --no-restore'
+
+    - task: DotNetCoreCLI@2
+      displayName: Test
+      inputs:
+        command: 'test'
+        projects: '$(testProjectPath)'
+        arguments: '-c $(buildConfiguration) --no-restore'
+
+    - template: templates/codesign.yaml@release_tools
+      parameters:
+        path:
+        - $(Agent.BuildDirectory)/s/resourcemanagement-mcp/src/Lithnet.ResourceManagement.McpServer/bin/$(buildConfiguration)/net10.0/Lithnet.ResourceManagement.McpServer.dll
+        environment: 'dev'
+        azureSubscription: 'LithnetPAYGSubscription'
+        description: 'Lithnet MIM MCP Server'
+
+    - task: DotNetCoreCLI@2
+      displayName: Pack
+      inputs:
+        command: 'pack'
+        packagesToPack: '$(projectPath)'
+        packDirectory: '$(packDir)'
+        nobuild: true
+        includesymbols: true
+        versioningScheme: 'byEnvVar'
+        versionEnvVar: 'build.version'
+
+    - template: templates/codesign.yaml@release_tools
+      parameters:
+        path:
+        - $(packDir)/*.nupkg
+        - $(packDir)/*.snupkg
+        environment: 'dev'
+        azureSubscription: 'LithnetPAYGSubscription'
+        description: 'Lithnet MIM MCP Server'
+
+    - publish: $(packDir)
+      displayName: Publish NuGet artifact
+      artifact: nuget
+
+- stage: publish_internal
+  displayName: Publish to internal feed
+  dependsOn: build
+  jobs:
+  - job: publish
+    displayName: Publish
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - checkout: release_tools
+      path: release-tools
+
+    - download: current
+      artifact: nuget
+
+    - template: templates/publish-nuget.yaml@release_tools
+      parameters:
+        nugetPackagePath: '$(Pipeline.Workspace)/nuget/*.nupkg'
+        symbolPackagePath: '$(Pipeline.Workspace)/nuget/*.snupkg'
+        publishInternal: true
+        publishExternal: false
+
+- stage: publish_external
+  displayName: Publish to nuget.org
+  dependsOn: publish_internal
+  jobs:
+  - deployment: publish
+    displayName: Publish
+    pool:
+      vmImage: 'windows-latest'
+    environment: 'Public nuget feed'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: release_tools
+            path: release-tools
+
+          - download: current
+            artifact: nuget
+
+          - template: templates/publish-nuget.yaml@release_tools
+            parameters:
+              nugetPackagePath: '$(Pipeline.Workspace)/nuget/*.nupkg'
+              symbolPackagePath: '$(Pipeline.Workspace)/nuget/*.snupkg'
+              publishInternal: false
+              publishExternal: true
+              externalFeedCredentials: '$(nugetServiceConnection)'

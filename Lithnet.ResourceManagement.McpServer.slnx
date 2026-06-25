@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Lithnet.ResourceManagement.McpServer/Lithnet.ResourceManagement.McpServer.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lithnet.ResourceManagement.McpServer.Tests/Lithnet.ResourceManagement.McpServer.Tests.csproj" />
+  </Folder>
+</Solution>
