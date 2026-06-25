@@ -1,3 +1,5 @@
+name: $(build.version.major).$(build.version.minor).$(build.version.revision)
+
 trigger:
   branches:
     include:
@@ -23,9 +25,9 @@ variables:
   - name: build.version
     value: $(build.version.major).$(build.version.minor).$(build.version.revision)
   - name: projectPath
-    value: 'src/Lithnet.ResourceManagement.McpServer/Lithnet.ResourceManagement.McpServer.csproj'
+    value: 'resourcemanagement-mcp/src/Lithnet.ResourceManagement.McpServer/Lithnet.ResourceManagement.McpServer.csproj'
   - name: testProjectPath
-    value: 'tests/Lithnet.ResourceManagement.McpServer.Tests/Lithnet.ResourceManagement.McpServer.Tests.csproj'
+    value: 'resourcemanagement-mcp/tests/Lithnet.ResourceManagement.McpServer.Tests/Lithnet.ResourceManagement.McpServer.Tests.csproj'
   - name: buildOutputDir
     value: '$(Build.ArtifactStagingDirectory)/build'
   - name: packDir
