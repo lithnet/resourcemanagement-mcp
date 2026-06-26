@@ -24,11 +24,18 @@ public static class ServerInstructions
 
         The not() function's argument must be an equality expression using = only. No !=, no nested functions.
 
-        ### Reference dereferencing (critical)
-        Do NOT compare reference attributes directly against GUID strings in XPath.
-        WRONG: /BindingDescription[BoundObjectType = '6cb7e506-...']
-        RIGHT: /BindingDescription[BoundObjectType = /ObjectTypeDescription[Name = 'Person']]
-        Always use the dereferencing syntax: ReferenceAttr = /TargetType[UniqueAttr = 'value']
+        ### Reference attributes in XPath
+        Two ways to compare reference attributes:
+
+        1. Direct GUID: /Person[Manager = '7fb2b853-24f0-4498-9534-4e10589723c4']
+           Use the bare GUID string (no prefix). This works for any reference attribute.
+
+        2. Dereferencing: /Person[Manager = /Person[AccountName = 'jsmith']]
+           Resolves the right-hand side to find matching ObjectIDs. Useful when you don't have the GUID but know an attribute value of the target.
+
+        Both are valid. Use whichever fits.
+
+        WARNING: Do NOT use the urn:uuid: prefix in XPath. /Person[Manager = 'urn:uuid:7fb2...'] will FAIL. Always use bare GUIDs.
 
         ### String quoting
         Use single quotes by default: /Person[AccountName = 'jsmith']
