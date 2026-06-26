@@ -24,6 +24,28 @@ public static class ServerInstructions
 
         The not() function's argument must be an equality expression using = only. No !=, no nested functions.
 
+        ### The != operator
+        - If the attribute is NULL and the right-hand side is a literal value, != returns FALSE (not true).
+        - If the attribute is NULL and the right-hand side is a location path (e.g. /Person), != returns TRUE.
+        - != is NOT supported on multi-valued attributes.
+
+        ### Multi-valued attributes
+        When using = with a multi-valued attribute on the left, the expression is true if ANY value matches:
+        /Group[ComputedMember = '11111111-1111-1111-1111-111111111111'] returns groups containing that member.
+
+        ### DateTime values
+        Use ISO 8601 format without timezone: /Person[CreatedTime >= '2024-01-15T10:30:00']
+        Date arithmetic functions: current-dateTime(), add-dayTimeDuration-to-dateTime(), subtract-dayTimeDuration-from-dateTime()
+        Example (groups expiring in 7 days): /Group[ExpirationTime <= op:add-dayTimeDuration-to-dateTime(fn:current-dateTime(), xs:dayTimeDuration('P7D'))]
+
+        ### Union queries
+        Use | to combine queries: /Person[Domain = 'CORP'] | /Person[Domain = 'DMZ']
+
+        ### Location path chains
+        Follow reference attributes through resources:
+        /Person[AccountName = 'jsmith']/Manager returns the manager's Person resource.
+        Each step must be a reference attribute. /Person/DisplayName is INVALID (DisplayName is a String, not a Reference).
+
         ### Reference attributes in XPath
         Two ways to compare reference attributes:
 
@@ -52,11 +74,22 @@ public static class ServerInstructions
         BindingDescription links an attribute to a type (with Required flag).
         After creating schema resources, call refresh_schema so subsequent queries see the new attributes.
 
+        ## Schema creation
+        To add an attribute to an object type:
+        1. Create an AttributeTypeDescription resource (Name, DisplayName, DataType, Multivalued)
+        2. Create a BindingDescription resource (BoundAttributeType = the attribute's ObjectID, BoundObjectType = the target ObjectTypeDescription's ObjectID, Required = true/false)
+        3. Call refresh_schema so subsequent queries see the new attributes
+        After creating a new ObjectTypeDescription, run iisreset on the MIM server to refresh the portal's schema cache.
+
         ## Sets
         Sets define resource collections used in policy. They have:
-        - Filter: XPath-based dynamic membership (wrapped in a <Filter> XML element with dialect namespace)
+        - Filter: XPath-based dynamic membership
         - ExplicitMember: manually added references
         - ComputedMember: read-only union of both
+
+        The Filter attribute value is NOT raw XPath. It must be wrapped in an XML element:
+        <Filter xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Dialect="http://schemas.microsoft.com/2006/11/XPathFilterDialect" xmlns="http://schemas.xmlsoap.org/ws/2004/09/enumeration">/Person[EmployeeType = 'Full Time Employee']</Filter>
+
         Set filters are more restricted than ad-hoc queries: contains() and location-path right-hand terms are not allowed.
 
         ## Management Policy Rules (MPRs)
