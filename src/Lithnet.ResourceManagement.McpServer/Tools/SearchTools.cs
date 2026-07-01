@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Lithnet.ResourceManagement.Client;
@@ -24,8 +25,9 @@ public static class SearchTools
         [Description("Array of filter conditions for structured mode. Each filter has Attribute, Operator, and optionally Value.")] SearchFilter[] filters = null,
         [Description("How to combine multiple filters: 'And' or 'Or'. Default is 'And'.")] string filterOperator = "And",
         [Description("Maximum number of results to return. Default is 50.")] int maxResults = 50,
-        [Description("Attribute name to sort results by.")] string sortBy = null,
-        [Description("Sort in descending order. Default is false (ascending).")] bool sortDescending = false)
+        [Description("Attribute names to sort results by. Results are sorted by each attribute in the order specified.")] string[] sortAttributes = null,
+        [Description("Sort in descending order. Default is false (ascending). Applies to all sort attributes.")] bool sortDescending = false,
+        [Description("Locale for the search, e.g. 'en-US'. If omitted, the server default locale is used.")] string locale = null)
     {
         if (attributes == null || attributes.Length == 0)
         {
@@ -77,16 +79,36 @@ public static class SearchTools
             throw new McpException($"Failed to connect to MIM service: {ex.Message}", ex);
         }
 
-        var sortAttributes = new List<SortingAttribute>();
+        var sortCriteria = new List<SortingAttribute>();
 
-        if (!string.IsNullOrWhiteSpace(sortBy))
+        if (sortAttributes != null)
         {
-            sortAttributes.Add(new SortingAttribute(sortBy, !sortDescending));
+            foreach (string attr in sortAttributes)
+            {
+                if (!string.IsNullOrWhiteSpace(attr))
+                {
+                    sortCriteria.Add(new SortingAttribute(attr, !sortDescending));
+                }
+            }
+        }
+
+        CultureInfo cultureInfo = null;
+
+        if (!string.IsNullOrWhiteSpace(locale))
+        {
+            try
+            {
+                cultureInfo = new CultureInfo(locale);
+            }
+            catch (CultureNotFoundException)
+            {
+                throw new McpException($"Invalid locale '{locale}'. Use a valid culture name such as 'en-US', 'de-DE', or 'ja-JP'.");
+            }
         }
 
         try
         {
-            var results = client.GetResources(filter, 200, attributes, sortAttributes);
+            var results = client.GetResources(filter, 200, attributes, sortCriteria, cultureInfo);
 
             var serialized = new List<Dictionary<string, object>>();
             int count = 0;
