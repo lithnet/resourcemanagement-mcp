@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Lithnet.ResourceManagement.McpServer.Tools;
+using ModelContextProtocol;
 using Xunit;
 
 namespace Lithnet.ResourceManagement.McpServer.Tests.Tools;
@@ -9,21 +10,21 @@ public class ResourceToolsTests
     [Fact]
     public void ValidateGetResourceParameters_BothIdAndKeyProvided_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             ResourceTools.ValidateGetResourceParameters("some-guid", "Person", "AccountName", "admin"));
     }
 
     [Fact]
     public void ValidateGetResourceParameters_NeitherIdNorKeyProvided_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             ResourceTools.ValidateGetResourceParameters(null, null, null, null));
     }
 
     [Fact]
     public void ValidateGetResourceParameters_EmptyStrings_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             ResourceTools.ValidateGetResourceParameters("", "", "", ""));
     }
 
@@ -42,21 +43,21 @@ public class ResourceToolsTests
     [Fact]
     public void ValidateGetResourceParameters_PartialKey_MissingAttributeValue_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             ResourceTools.ValidateGetResourceParameters(null, "Person", "AccountName", null));
     }
 
     [Fact]
     public void ValidateUpdateResourceParameters_NoChangesProvided_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             ResourceTools.ValidateUpdateResourceParameters(null, null, null));
     }
 
     [Fact]
     public void ValidateUpdateResourceParameters_EmptyDictionaries_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             ResourceTools.ValidateUpdateResourceParameters(
                 new Dictionary<string, JsonElement>(),
                 new Dictionary<string, JsonElement>(),
@@ -99,14 +100,14 @@ public class ResourceToolsTests
     [Fact]
     public void ValidateDeleteResourceParameters_EmptyObjectId_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             ResourceTools.ValidateDeleteResourceParameters(""));
     }
 
     [Fact]
     public void ValidateDeleteResourceParameters_NullObjectId_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             ResourceTools.ValidateDeleteResourceParameters(null));
     }
 
@@ -198,7 +199,7 @@ public class ResourceToolsTests
     {
         var element = JsonDocument.Parse("{\"key\":\"value\"}").RootElement;
 
-        Assert.Throws<ArgumentException>(() => ResourceTools.ConvertJsonElement(element));
+        Assert.Throws<McpException>(() => ResourceTools.ConvertJsonElement(element));
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using Lithnet.ResourceManagement.Client;
 using Lithnet.ResourceManagement.McpServer.Serialization;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Lithnet.ResourceManagement.McpServer.Tools;
@@ -23,36 +24,43 @@ public static class ResourceTools
     {
         ValidateGetResourceParameters(objectId, objectType, attributeName, attributeValue);
 
-        var client = clientFactory.GetClient();
-        IResourceObject resource;
-
-        bool hasId = !string.IsNullOrEmpty(objectId);
-
-        if (hasId)
+        try
         {
-            if (attributes != null)
+            var client = clientFactory.GetClient();
+            IResourceObject resource;
+
+            bool hasId = !string.IsNullOrEmpty(objectId);
+
+            if (hasId)
             {
-                resource = client.GetResource(objectId, attributes);
+                if (attributes != null)
+                {
+                    resource = client.GetResource(objectId, attributes);
+                }
+                else
+                {
+                    resource = client.GetResource(objectId);
+                }
             }
             else
             {
-                resource = client.GetResource(objectId);
+                if (attributes != null)
+                {
+                    resource = client.GetResourceByKey(objectType, attributeName, attributeValue, attributes, null);
+                }
+                else
+                {
+                    resource = client.GetResourceByKey(objectType, attributeName, attributeValue);
+                }
             }
-        }
-        else
-        {
-            if (attributes != null)
-            {
-                resource = client.GetResourceByKey(objectType, attributeName, attributeValue, attributes, null);
-            }
-            else
-            {
-                resource = client.GetResourceByKey(objectType, attributeName, attributeValue);
-            }
-        }
 
-        var serialized = ResourceSerializer.Serialize(resource, attributes);
-        return JsonSerializer.Serialize(serialized, jsonOptions);
+            var serialized = ResourceSerializer.Serialize(resource, attributes);
+            return JsonSerializer.Serialize(serialized, jsonOptions);
+        }
+        catch (Exception ex) when (ex is not McpException)
+        {
+            throw new McpException($"Failed to get resource: {ex.Message}", ex);
+        }
     }
 
     [McpServerTool(Name = "create_resource")]
@@ -64,21 +72,28 @@ public static class ResourceTools
     {
         if (attributes == null || attributes.Count == 0)
         {
-            throw new ArgumentException("The 'attributes' parameter is required and must contain at least one attribute.");
+            throw new McpException("The 'attributes' parameter is required and must contain at least one attribute.");
         }
 
-        var client = clientFactory.GetClient();
-        var resource = client.CreateResource(objectType);
-
-        foreach (var kvp in attributes)
+        try
         {
-            SetAttributeFromJson(resource, kvp.Key, kvp.Value);
+            var client = clientFactory.GetClient();
+            var resource = client.CreateResource(objectType);
+
+            foreach (var kvp in attributes)
+            {
+                SetAttributeFromJson(resource, kvp.Key, kvp.Value);
+            }
+
+            client.SaveResource(resource);
+
+            var serialized = ResourceSerializer.Serialize(resource);
+            return JsonSerializer.Serialize(serialized, jsonOptions);
         }
-
-        client.SaveResource(resource);
-
-        var serialized = ResourceSerializer.Serialize(resource);
-        return JsonSerializer.Serialize(serialized, jsonOptions);
+        catch (Exception ex) when (ex is not McpException)
+        {
+            throw new McpException($"Failed to create {objectType} resource: {ex.Message}", ex);
+        }
     }
 
     [McpServerTool(Name = "update_resource")]
@@ -92,36 +107,43 @@ public static class ResourceTools
     {
         ValidateUpdateResourceParameters(attributes, addValues, removeValues);
 
-        var client = clientFactory.GetClient();
-        var resource = client.GetResource(objectId);
-
-        if (attributes != null)
+        try
         {
-            foreach (var kvp in attributes)
-            {
-                SetAttributeFromJson(resource, kvp.Key, kvp.Value);
-            }
-        }
+            var client = clientFactory.GetClient();
+            var resource = client.GetResource(objectId);
 
-        if (addValues != null)
+            if (attributes != null)
+            {
+                foreach (var kvp in attributes)
+                {
+                    SetAttributeFromJson(resource, kvp.Key, kvp.Value);
+                }
+            }
+
+            if (addValues != null)
+            {
+                foreach (var kvp in addValues)
+                {
+                    AddAttributeValueFromJson(resource, kvp.Key, kvp.Value);
+                }
+            }
+
+            if (removeValues != null)
+            {
+                foreach (var kvp in removeValues)
+                {
+                    RemoveAttributeValueFromJson(resource, kvp.Key, kvp.Value);
+                }
+            }
+
+            client.SaveResource(resource);
+
+            return JsonSerializer.Serialize(new { objectId, status = "updated" }, jsonOptions);
+        }
+        catch (Exception ex) when (ex is not McpException)
         {
-            foreach (var kvp in addValues)
-            {
-                AddAttributeValueFromJson(resource, kvp.Key, kvp.Value);
-            }
+            throw new McpException($"Failed to update resource '{objectId}': {ex.Message}", ex);
         }
-
-        if (removeValues != null)
-        {
-            foreach (var kvp in removeValues)
-            {
-                RemoveAttributeValueFromJson(resource, kvp.Key, kvp.Value);
-            }
-        }
-
-        client.SaveResource(resource);
-
-        return JsonSerializer.Serialize(new { objectId, status = "updated" }, jsonOptions);
     }
 
     [McpServerTool(Name = "delete_resource")]
@@ -132,10 +154,17 @@ public static class ResourceTools
     {
         ValidateDeleteResourceParameters(objectId);
 
-        var client = clientFactory.GetClient();
-        client.DeleteResource(objectId);
+        try
+        {
+            var client = clientFactory.GetClient();
+            client.DeleteResource(objectId);
 
-        return JsonSerializer.Serialize(new { objectId, status = "deleted" }, jsonOptions);
+            return JsonSerializer.Serialize(new { objectId, status = "deleted" }, jsonOptions);
+        }
+        catch (Exception ex) when (ex is not McpException)
+        {
+            throw new McpException($"Failed to delete resource '{objectId}': {ex.Message}", ex);
+        }
     }
 
     internal static void ValidateGetResourceParameters(string objectId, string objectType, string attributeName, string attributeValue)
@@ -145,12 +174,12 @@ public static class ResourceTools
 
         if (hasId && hasKey)
         {
-            throw new ArgumentException("Provide either 'objectId' or 'objectType'+'attributeName'+'attributeValue', not both.");
+            throw new McpException("Provide either 'objectId' or 'objectType'+'attributeName'+'attributeValue', not both.");
         }
 
         if (!hasId && !hasKey)
         {
-            throw new ArgumentException("Provide either 'objectId' for ID-based lookup, or 'objectType'+'attributeName'+'attributeValue' for key-based lookup.");
+            throw new McpException("Provide either 'objectId' for ID-based lookup, or 'objectType'+'attributeName'+'attributeValue' for key-based lookup.");
         }
     }
 
@@ -160,7 +189,7 @@ public static class ResourceTools
             (addValues == null || addValues.Count == 0) &&
             (removeValues == null || removeValues.Count == 0))
         {
-            throw new ArgumentException("At least one of 'attributes', 'addValues', or 'removeValues' must be provided.");
+            throw new McpException("At least one of 'attributes', 'addValues', or 'removeValues' must be provided.");
         }
     }
 
@@ -168,7 +197,7 @@ public static class ResourceTools
     {
         if (string.IsNullOrEmpty(objectId))
         {
-            throw new ArgumentException("The 'objectId' parameter is required.");
+            throw new McpException("The 'objectId' parameter is required.");
         }
     }
 
@@ -243,7 +272,7 @@ public static class ResourceTools
                 return null;
             case JsonValueKind.Object:
             case JsonValueKind.Array:
-                throw new ArgumentException($"Nested objects and arrays are not supported as attribute values. Got: {element.GetRawText()}");
+                throw new McpException($"Nested objects and arrays are not supported as attribute values. Got: {element.GetRawText()}");
             default:
                 return element.GetRawText();
         }

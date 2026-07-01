@@ -4,6 +4,7 @@ using System.Text.Json;
 using Lithnet.ResourceManagement.Client;
 using Lithnet.ResourceManagement.McpServer.Models;
 using Lithnet.ResourceManagement.McpServer.Serialization;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Lithnet.ResourceManagement.McpServer.Tools;
@@ -28,7 +29,7 @@ public static class SearchTools
     {
         if (attributes == null || attributes.Length == 0)
         {
-            throw new ArgumentException("At least one attribute name must be specified.", nameof(attributes));
+            throw new McpException("At least one attribute name must be specified.");
         }
 
         bool hasXPath = !string.IsNullOrWhiteSpace(xpath);
@@ -36,12 +37,12 @@ public static class SearchTools
 
         if (hasXPath && hasStructured)
         {
-            throw new ArgumentException("Provide either 'xpath' for raw XPath mode, or 'objectType' and 'filters' for structured mode — not both.");
+            throw new McpException("Provide either 'xpath' for raw XPath mode, or 'objectType' and 'filters' for structured mode — not both.");
         }
 
         if (!hasXPath && !hasStructured)
         {
-            throw new ArgumentException("Either 'xpath' must be provided for raw XPath mode, or 'objectType' and 'filters' must be provided for structured mode.");
+            throw new McpException("Either 'xpath' must be provided for raw XPath mode, or 'objectType' and 'filters' must be provided for structured mode.");
         }
 
         string filter;
@@ -54,18 +55,27 @@ public static class SearchTools
         {
             if (string.IsNullOrWhiteSpace(objectType))
             {
-                throw new ArgumentException("'objectType' is required when using structured filter mode.", nameof(objectType));
+                throw new McpException("'objectType' is required when using structured filter mode.");
             }
 
             if (filters == null || filters.Length == 0)
             {
-                throw new ArgumentException("At least one filter must be provided when using structured filter mode.", nameof(filters));
+                throw new McpException("At least one filter must be provided when using structured filter mode.");
             }
 
             filter = BuildXPathFromFilters(objectType, filters, filterOperator);
         }
 
-        var client = clientFactory.GetClient();
+        ResourceManagementClient client;
+
+        try
+        {
+            client = clientFactory.GetClient();
+        }
+        catch (Exception ex)
+        {
+            throw new McpException($"Failed to connect to MIM service: {ex.Message}", ex);
+        }
 
         List<SortingAttribute> sortAttributes = null;
 
@@ -77,32 +87,42 @@ public static class SearchTools
             };
         }
 
-        var results = client.GetResources(filter, 200, attributes, sortAttributes);
-
-        var serialized = new List<Dictionary<string, object>>();
-        int count = 0;
-
-        foreach (var resource in results)
+        try
         {
-            if (count >= maxResults)
+            var results = client.GetResources(filter, 200, attributes, sortAttributes);
+
+            var serialized = new List<Dictionary<string, object>>();
+            int count = 0;
+
+            foreach (var resource in results)
             {
-                break;
+                if (count >= maxResults)
+                {
+                    break;
+                }
+
+                serialized.Add(ResourceSerializer.Serialize(resource, attributes));
+                count++;
             }
 
-            serialized.Add(ResourceSerializer.Serialize(resource, attributes));
-            count++;
+            return JsonSerializer.Serialize(serialized, jsonOptions);
         }
-
-        return JsonSerializer.Serialize(serialized, jsonOptions);
+        catch (McpException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new McpException($"Search failed for filter '{filter}': {ex.GetType().Name}: {ex.Message}", ex);
+        }
     }
 
     internal static string BuildXPathFromFilters(string objectType, SearchFilter[] filters, string filterOperator)
     {
         if (!Enum.TryParse<GroupOperator>(filterOperator, ignoreCase: true, out var groupOp))
         {
-            throw new ArgumentException(
-                $"Invalid filter operator '{filterOperator}'. Valid values are: {string.Join(", ", Enum.GetNames(typeof(GroupOperator)))}.",
-                nameof(filterOperator));
+            throw new McpException(
+                $"Invalid filter operator '{filterOperator}'. Valid values are: {string.Join(", ", Enum.GetNames(typeof(GroupOperator)))}.");
         }
 
         string joinOperator = groupOp == GroupOperator.And ? " and " : " or ";
@@ -160,7 +180,7 @@ public static class SearchTools
                 return $"{filter.Attribute}<={quotedValue}";
 
             default:
-                throw new ArgumentException($"Unknown filter operator '{filter.Operator}'. Valid operators are: Equals, NotEquals, Contains, StartsWith, EndsWith, GreaterThan, LessThan, GreaterThanOrEqual, LessThanOrEqual, IsPresent, NotPresent.");
+                throw new McpException($"Unknown filter operator '{filter.Operator}'. Valid operators are: Equals, NotEquals, Contains, StartsWith, EndsWith, GreaterThan, LessThan, GreaterThanOrEqual, LessThanOrEqual, IsPresent, NotPresent.");
         }
     }
 
@@ -170,7 +190,7 @@ public static class SearchTools
         {
             if (value.Contains("\""))
             {
-                throw new ArgumentException($"Cannot quote a value that contains both single and double quotes: {value}");
+                throw new McpException($"Cannot quote a value that contains both single and double quotes: {value}");
             }
 
             return $"\"{value}\"";

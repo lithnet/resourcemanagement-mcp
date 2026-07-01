@@ -1,5 +1,6 @@
 using Lithnet.ResourceManagement.McpServer.Models;
 using Lithnet.ResourceManagement.McpServer.Tools;
+using ModelContextProtocol;
 using Xunit;
 
 namespace Lithnet.ResourceManagement.McpServer.Tests.Tools;
@@ -141,7 +142,7 @@ public class SearchToolsTests
     [Fact]
     public void QuoteXPathValue_ValueWithBothQuoteTypes_Throws()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             SearchTools.QuoteXPathValue("it's a \"test\""));
     }
 
@@ -153,7 +154,7 @@ public class SearchToolsTests
             new SearchFilter { Attribute = "Name", Operator = "FooBar", Value = "test" }
         };
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             SearchTools.BuildXPathFromFilters("Person", filters, "And"));
     }
 
@@ -165,7 +166,7 @@ public class SearchToolsTests
             new SearchFilter { Attribute = "Name", Operator = "Equals", Value = "John" }
         };
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<McpException>(() =>
             SearchTools.BuildXPathFromFilters("Person", filters, "Xor"));
     }
 }
