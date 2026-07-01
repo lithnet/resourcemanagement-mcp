@@ -77,14 +77,11 @@ public static class SearchTools
             throw new McpException($"Failed to connect to MIM service: {ex.Message}", ex);
         }
 
-        List<SortingAttribute> sortAttributes = null;
+        var sortAttributes = new List<SortingAttribute>();
 
         if (!string.IsNullOrWhiteSpace(sortBy))
         {
-            sortAttributes = new List<SortingAttribute>
-            {
-                new SortingAttribute(sortBy, !sortDescending)
-            };
+            sortAttributes.Add(new SortingAttribute(sortBy, !sortDescending));
         }
 
         try
