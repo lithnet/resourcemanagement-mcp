@@ -61,11 +61,17 @@ stages:
     - task: NuGetAuthenticate@1
       displayName: Authenticate with NuGet
 
+    # feedsToUse/nugetConfigPath are required here: left unset, the restore task
+    # synthesizes its own temporary NuGet config containing only nuget.org, which
+    # silently overrides the repository's nuget.config and puts the internal feed
+    # out of reach.
     - task: DotNetCoreCLI@2
       displayName: Restore
       inputs:
         command: 'restore'
         projects: '**/*.csproj'
+        feedsToUse: 'config'
+        nugetConfigPath: 'resourcemanagement-mcp/nuget.config'
 
     - task: DotNetCoreCLI@2
       displayName: Build
