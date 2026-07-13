@@ -56,6 +56,11 @@ stages:
         packageType: 'sdk'
         version: '10.x'
 
+    # Lithnet.ResourceManagement.Client is restored from the internal Azure Artifacts
+    # feed declared in nuget.config, so the feed must be authenticated before restore.
+    - task: NuGetAuthenticate@1
+      displayName: Authenticate with NuGet
+
     - task: DotNetCoreCLI@2
       displayName: Restore
       inputs:
