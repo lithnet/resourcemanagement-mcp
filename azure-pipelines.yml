@@ -28,8 +28,11 @@ variables:
     value: 'resourcemanagement-mcp/src/Lithnet.ResourceManagement.McpServer/Lithnet.ResourceManagement.McpServer.csproj'
   - name: testProjectPath
     value: 'resourcemanagement-mcp/src/Lithnet.ResourceManagement.McpServer.Tests/Lithnet.ResourceManagement.McpServer.Tests.csproj'
-  - name: buildOutputDir
-    value: '$(Build.ArtifactStagingDirectory)/build'
+  # The server assembly is signed where the build leaves it, because that is the
+  # output that pack consumes. Redirecting the build elsewhere would sign a copy
+  # that never reaches the package.
+  - name: serverAssemblyGlob
+    value: '$(Build.SourcesDirectory)/resourcemanagement-mcp/src/Lithnet.ResourceManagement.McpServer/**/Lithnet.ResourceManagement.McpServer.dll'
   - name: packDir
     value: '$(Build.ArtifactStagingDirectory)/nuget'
   - name: nugetServiceConnection
@@ -73,25 +76,32 @@ stages:
         feedsToUse: 'config'
         nugetConfigPath: 'resourcemanagement-mcp/src/nuget.config'
 
+    # Build the test project as well, so the tests can run without rebuilding. A
+    # test run that rebuilds would recompile the server through its project
+    # reference, replacing the signed, version-stamped assembly with an unsigned
+    # one that pack would then ship.
     - task: DotNetCoreCLI@2
       displayName: Build
       inputs:
         command: 'build'
-        projects: '$(projectPath)'
-        arguments: '-c $(buildConfiguration) -p:Version=$(build.version) -p:GeneratePackageOnBuild=false -o $(buildOutputDir) --no-restore'
+        projects: |
+          $(projectPath)
+          $(testProjectPath)
+        arguments: '-c $(buildConfiguration) -p:Version=$(build.version) -p:GeneratePackageOnBuild=false --no-restore'
 
     - task: DotNetCoreCLI@2
       displayName: Test
       inputs:
         command: 'test'
         projects: '$(testProjectPath)'
-        arguments: '-c $(buildConfiguration) --no-restore'
+        arguments: '-c $(buildConfiguration) --no-build --no-restore'
 
+    # Sign before packing, so the package carries the signed assembly.
     - template: templates/codesign.yaml@release_tools
       parameters:
         path:
-        - $(buildOutputDir)/Lithnet.ResourceManagement.McpServer.dll
-        environment: 'dev'
+        - $(serverAssemblyGlob)
+        environment: 'prod'
         azureSubscription: 'ProductionServices'
         description: 'Lithnet MIM MCP Server'
 
@@ -111,7 +121,7 @@ stages:
         path:
         - $(packDir)/*.nupkg
         - $(packDir)/*.snupkg
-        environment: 'dev'
+        environment: 'prod'
         azureSubscription: 'ProductionServices'
         description: 'Lithnet MIM MCP Server'
 
